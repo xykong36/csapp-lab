@@ -1,15 +1,21 @@
 #include <stdio.h>
-
-void multstore(long, long, long *);
+#include <sys/types.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/wait.h>
 
 int main() {
-  long d;
-  multstore(2, 3, &d);
-  printf("2 * 3 --> %ld\n", d);
-  return 0;
-}
+  int status;
+  pid_t child_pid = fork();
 
-long mult2(long a, long b) {
-  long s = a * b;
-  return s;
+  if (child_pid == 0) {
+    printf("Child!\n");
+
+    exit(0);
+  }
+  else {
+    // waitpid(child_pid, &status, 0);
+
+    printf("Parent!\n");
+  }
 }
