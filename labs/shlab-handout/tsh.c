@@ -176,7 +176,15 @@ void eval(char *cmdline)
         return;
 
     if (!builtin_cmd(argv)) {
+        sigset_t mask_all, mask_one, prev_one;
+        sigfillset(&mask_all);
+        sigemptyset(&mask_one);
+        sigaddset(&mask_one, SIGCHLD);
+        Signal(SIGCHLD, sigchld_handler);
+
+        sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
         if ((pid = fork()) == 0) {
+            sigprocmask(SIG_SETMASK, &prev_one, NULL); // Unblock SIGCHILD
             // execve(const char *pathname, char *const argv[], char *const envp[])
             if (execve(argv[0], argv, environ) < 0) {
                 printf("%s: Command not found. \n", argv[0]);
@@ -187,11 +195,15 @@ void eval(char *cmdline)
         /* Parent waits for foreground job to terminate */
         if (!bg) {
             int status;
-            if (waitpid(pid, &status, 0) < 0)
+            if (waitpid(pid, &status, 0) < 0) // run the foreground job
                 unix_error("waitfg: waitpid error");
         }
-        else
+        else {
+            sigprocmask(SIG_BLOCK, &mask_all, NULL);
+            addjob(jobs, pid, BG, cmdline);
             printf("%d %s", pid, cmdline);
+            sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        }
     } 
     
     return;
@@ -264,6 +276,10 @@ int builtin_cmd(char **argv)
         exit(0);
     if (!strcmp(argv[0], "&"))
         return 1;
+    if (!strcmp(argv[0], "jobs")) {
+        listjobs(jobs);
+        return 1;
+    }
     return 0;     /* not a builtin command */
 }
 
@@ -296,7 +312,18 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    return;
+    int olderrno = errno;
+    sigset_t mask_all, prev_all;
+    pid_t pid;
+
+
+    sigfillset(&mask_all);
+    while ((pid == waitpid(-1, NULL, 0)) > 0) {
+        sigprocmask(SIG_BLOCK, &mask_all, &prev_all);
+        deletejob(jobs, pid);
+        sigprocmask(SIG_SETMASK, &prev_all, NULL);
+    }
+    errno = olderrno;
 }
 
 /* 
