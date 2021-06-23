@@ -201,7 +201,8 @@ void eval(char *cmdline)
         else {
             sigprocmask(SIG_BLOCK, &mask_all, NULL);
             addjob(jobs, pid, BG, cmdline);
-            printf("%d %s", pid, cmdline);
+						int jid = pid2jid(pid); 
+            printf("[%d] (%d) %s", jid, pid, cmdline);
             sigprocmask(SIG_SETMASK, &prev_one, NULL);
         }
     } 
@@ -333,6 +334,7 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
+	  printf("inside sigint handler \n");
     return;
 }
 
