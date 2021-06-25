@@ -201,7 +201,6 @@ void eval(char *cmdline)
 
         /* Parent waits for foreground job to terminate */
         if (!bg) {
-					  assert(bg == 0);
 					  printf("===== inside fg pid: %d===== \n", pid);
             int status;
 						addjob(jobs, pid, FG, cmdline);
@@ -284,14 +283,33 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
-	  printf("==== argv[0]: %s====\n", argv[0]);
-		printf("==== argv[1]: %s====\n", argv[1]);
+	  //printf("==== argv[0]: %s====\n", argv[0]);
+	  //printf("==== argv[1]: %s====\n", argv[1]);
+ 	  //printf("==== argv[2]: %s====\n \n", argv[2]);
+    int argc = 1;
     if (!strcmp(argv[0], "quit"))
         exit(0);
     if (!strcmp(argv[0], "&"))
         return 1;
-		if (!strcmp(argv[0], "/bin/echo"))
-			  return 1;
+		if (!strcmp(argv[0], "/bin/echo")) {
+			  if (!strcmp(argv[1], "-e")) {
+			      argc = 2;
+						while (argv[argc] != NULL) {
+				    	  fputs(argv[argc], stdout);
+				    	  argc++;
+				        putchar (' ');
+				    }
+				} else {
+					  argc = 1;
+			      while (argv[argc] != NULL) {
+			        fputs(argv[argc], stdout);
+			        argc++;
+			        putchar (' ');
+			      }
+				}
+				printf("\n");
+				return 1;
+		}
     if (!strcmp(argv[0], "jobs")) {
         listjobs(jobs);
         return 1;
