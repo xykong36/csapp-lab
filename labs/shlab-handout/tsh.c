@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <assert.h>
 
 /* Misc manifest constants */
 #define MAXLINE    1024   /* max line size */
@@ -185,20 +186,30 @@ void eval(char *cmdline)
         sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
         if ((pid = fork()) == 0) {
             sigprocmask(SIG_SETMASK, &prev_one, NULL); // Unblock SIGCHILD
-            // execve(const char *pathname, char *const argv[], char *const envp[])
+						printf("====== inside child ======");
+					  //	addjob(jobs, pid, FG, cmdline);
+	          //  printf("Added job[0]: jid: %d, pid:%d cmdline:%s, state:%d\n", jobs[0].jid, jobs[0].pid, jobs[0].cmdline, jobs[0].state);
+					  //	printf("job[0]: jid: %d, pid:%d cmdline:%s, state:%d\n", jobs[0].jid, jobs[0].pid, jobs[0].cmdline, jobs[0].state);
+					  //	printf("job[1]: jid: %d, pid:%d cmdline:%s, state:%d\n", jobs[1].jid, jobs[1].pid, jobs[1].cmdline, jobs[1].state);
+					  //	printf("job[2]: jid: %d, pid:%d cmdline:%s, state:%d\n", jobs[2].jid, jobs[2].pid, jobs[2].cmdline, jobs[2].state);
             if (execve(argv[0], argv, environ) < 0) {
                 printf("%s: Command not found. \n", argv[0]);
                 exit(0);
             }
+						exit(0);
         }
 
         /* Parent waits for foreground job to terminate */
         if (!bg) {
+					  assert(bg == 0);
+					  printf("===== inside fg pid: %d===== \n", pid);
             int status;
+						addjob(jobs, pid, FG, cmdline);
             if (waitpid(pid, &status, 0) < 0) // run the foreground job
                 unix_error("waitfg: waitpid error");
         }
         else {
+					  printf("===== inside bg pid: %d===== \n", pid);
             sigprocmask(SIG_BLOCK, &mask_all, NULL);
             addjob(jobs, pid, BG, cmdline);
 						int jid = pid2jid(pid); 
@@ -273,10 +284,14 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
+	  printf("==== argv[0]: %s====\n", argv[0]);
+		printf("==== argv[1]: %s====\n", argv[1]);
     if (!strcmp(argv[0], "quit"))
         exit(0);
     if (!strcmp(argv[0], "&"))
         return 1;
+		if (!strcmp(argv[0], "/bin/echo"))
+			  return 1;
     if (!strcmp(argv[0], "jobs")) {
         listjobs(jobs);
         return 1;
@@ -334,8 +349,21 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
-	  printf("inside sigint handler \n");
+    int olderrno = errno;
+    pid_t pid;
+		sigset_t mask_sigint, prev_all;
+    sigaddset(&mask_sigint, SIGINT);		
+		
+		if((pid = fgpid(jobs)) > 0) {
+			int jid = pid2jid(pid);
+			sigprocmask(SIG_BLOCK, &mask_sigint, &prev_all);
+      deletejob(jobs, pid);
+      sigprocmask(SIG_SETMASK, &prev_all, NULL);
+      printf("Job [%d] (%d) terminated by signal 2\n",jid, pid);
+		}
     return;
+
+		errno = olderrno;
 }
 
 /*
