@@ -25,6 +25,7 @@ int main()
     pid_t pid;
     sigset_t mask, prev_mask;
 
+    // global variable counter == 2
     printf("%ld", counter);
     fflush(stdout);
 
@@ -32,9 +33,12 @@ int main()
     if ((pid = Fork()) == 0) {
         while(1) {};
     }
+    // send the signal to the child process pid
     Kill(pid, SIGUSR1); 
+    // -1: wait for any child process
     Waitpid(-1, NULL, 0);
 
+    // which is the first ? 
     Sigfillset(&mask);
     Sigprocmask(SIG_BLOCK, &mask, &prev_mask);  /* Block sigs */
     printf("%ld", ++counter);

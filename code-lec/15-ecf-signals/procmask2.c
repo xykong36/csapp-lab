@@ -44,6 +44,8 @@ int main(int argc, char **argv)
     while (1) {
         Sigprocmask(SIG_BLOCK, &mask_one, &prev_one); /* Block SIGCHLD */
         if ((pid = Fork()) == 0) { /* Child process */
+            // child process inherits the blocked set of their parents, 
+            // so we must unblock the SIGCHILD signal in the child before calling execve
             Sigprocmask(SIG_SETMASK, &prev_one, NULL); /* Unblock SIGCHLD */
             Execve("/bin/date", argv, NULL);
         }
