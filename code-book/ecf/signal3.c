@@ -7,11 +7,11 @@ void handler2(int sig)
     char buf[MAXBUF];
 
     while ((pid = waitpid(-1, NULL, 0)) > 0) {
-	snprintf(buf, MAXBUF, "Handler reaped child %d\n", (int)pid); 
-	write(1, buf, strlen(buf));
+        snprintf(buf, MAXBUF, "Handler reaped child %d\n", (int)pid); 
+        write(1, buf, strlen(buf));
     }
     if (errno != ECHILD)
-	unix_error("waitpid error");
+	    unix_error("waitpid error");
     Sleep(2);
     return;
 }
@@ -26,12 +26,12 @@ int main() {
 
     /* Parent creates children */
     for (i = 0; i < 3; i++) {
-	pid = Fork();
-	if (pid == 0) {
-	    printf("Hello from child %d\n", (int)getpid());
-	    Sleep(1);
-	    exit(0);
-	}
+        pid = Fork();
+        if (pid == 0) {
+            printf("Hello from child %d\n", (int)getpid());
+            Sleep(1);
+            exit(0);
+        }
     }
 
     /* Manually restart the read call if it is interrupted */
