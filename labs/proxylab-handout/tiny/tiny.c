@@ -61,7 +61,9 @@ void doit(int fd) {
     return;
   printf("%s", buf);
   sscanf(buf, "%s %s %s", method, uri, version); // line:netp:doit:parserequest
-  if (strcasecmp(method, "GET")) { // line:netp:doit:beginrequesterr
+  printf("[DEBUG] method: %s, uri: %s, version: %s\n", method, uri, version);
+  if (strcasecmp(method,
+                 "GET")) { // line:netp:doit:beginrequesterr
     clienterror(fd, method, "501", "Not Implemented",
                 "Tiny does not implement this method");
     return;
