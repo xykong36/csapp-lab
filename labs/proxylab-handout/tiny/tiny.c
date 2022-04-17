@@ -61,7 +61,6 @@ void doit(int fd) {
     return;
   printf("%s", buf);
   sscanf(buf, "%s %s %s", method, uri, version); // line:netp:doit:parserequest
-  printf("[DEBUG] method: %s, uri: %s, version: %s\n", method, uri, version);
   if (strcasecmp(method,
                  "GET")) { // line:netp:doit:beginrequesterr
     clienterror(fd, method, "501", "Not Implemented",

@@ -10,9 +10,10 @@ static const char *user_agent_hdr =
     "Firefox/10.0.3\r\n";
 
 void doit(int fd);
-void forward_request(char *serverhostname, char *serverport);
-void read_requesthdrs(rio_t *rp, char *serverhostname, char *serverport);
-int parse_uri(char *uri, char *filename);
+void forward_request(char *serverhostname, char *serverport, char *requestbuf);
+void read_requesthdrs(rio_t *rp, char *requestbuf);
+int parse_uri(char *uri, char *filename, char *serverhostname, char *serverport,
+              char *requestbuf);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg,
                  char *longmsg);
 
@@ -47,9 +48,11 @@ void doit(int fd) {
   char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
   char filename[MAXLINE], cgiargs[MAXLINE];
   char serverhostname[MAXLINE], serverport[MAXLINE];
+  char requestbuf[MAXLINE];
   rio_t rio;
 
   Rio_readinitb(&rio, fd);
+
   if (!Rio_readlineb(&rio, buf, MAXLINE)) // line:netp:doit:readrequest
     return;
   printf("%s", buf);
@@ -58,54 +61,64 @@ void doit(int fd) {
     clienterror(fd, method, "501", "Not Implemented",
                 "Proxy does not implement this method");
     return;
-  } // line:netp:doit:endrequesterr
-  printf("[DEBUG] before start parsing the request headers\n");
-  read_requesthdrs(&rio, serverhostname, serverport);
-  // TODO: get the filename
-  parse_uri(uri, filename);
+  }
+
+  parse_uri(uri, filename, serverhostname, serverport, requestbuf);
+
+  read_requesthdrs(&rio, requestbuf);
 
   // TODO: forward the request to the server and receive the response
+  forward_request(serverhostname, serverport, requestbuf);
 
   // TODO: return the server response to the client
 
   // TODO: clean up and close the connection
 }
 
-void forward_request(char *serverhostname, char *serverport) {
+void forward_request(char *serverhostname, char *serverport, char *requestbuf) {
   int clientfd;
   rio_t rio_server;
   clientfd = Open_clientfd(serverhostname, serverport);
   Rio_readinitb(&rio_server, clientfd);
+  Rio_writen(clientfd, requestbuf, strlen(requestbuf));
+  // TODO: remove the fputs after testing
+  Fputs(requestbuf, stdout);
+  Close(clientfd);
+  exit(0);
 }
 
 /*
  * read_requesthdrs - read HTTP request headers
  */
 /* $begin read_requesthdrs */
-void read_requesthdrs(rio_t *rp, char *serverhostname, char *serverport) {
+void read_requesthdrs(rio_t *rp, char *requestbuf) {
+  printf("[DEBUG] before start parsing the request headers\n");
   char buf[MAXLINE];
-
   //   Rio_readlineb(rp, buf, MAXLINE);
-  //   printf("89 [DEBUG] request buf: %s\n", buf);
+  printf("98 [DEBUG] request buf: %s\n", buf);
+  printf("rp buffer: %s", rp->rio_buf);
+  Rio_readlineb(rp, buf, MAXLINE);
+  printf("failed?");
   while (strcmp(buf, "\r\n")) {
+    printf("[DEBUG] in while loop header requestbuf: %s", requestbuf);
     Rio_readlineb(rp, buf, MAXLINE);
-    printf("%s", buf);
-    if (strstr(buf, "Host")) {
-      if (strchr(buf + 6, ':')) {
-        printf("[DEBUG] found the port number");
-        sscanf(buf, "%*[^:]%*2c%[^:]%*c%s", serverhostname, serverport);
-      } else {
-        printf("[DEBUG] not found the port number\n");
-        sscanf(buf, "%*[^:]%*2c%s", serverhostname);
-        // Use the default HTTP port 80
-        serverport = "80";
-      }
-      printf("[DEBUG] received the request, the hostname is %s, the port is : "
-             "%s\n",
-             serverhostname, serverport);
+    printf("1111%s", buf);
+    if (strstr(buf, "User-Agent")) {
+      strcat(requestbuf, user_agent_hdr);
+    } else if (strstr(buf, "Connection")) {
+      strcat(requestbuf, "Connection: close\r\n");
+    } else if (strstr(buf, "Proxy-Connection")) {
+      strcat(requestbuf, "Proxy-Connection: close\r\n");
+    } else {
+      strcat(requestbuf, buf);
     }
-    return;
+    printf("[DEBUG] in while loop header requestbuf: %s", requestbuf);
   }
+
+  printf("[DEBUG] after parsing the headers requestbuf: %s", requestbuf);
+  strcat(requestbuf, "\r\n");
+
+  return;
 }
 
 /*
@@ -113,11 +126,30 @@ void read_requesthdrs(rio_t *rp, char *serverhostname, char *serverport) {
  *             return 0 if dynamic content, 1 if static
  */
 /* $begin parse_uri */
-int parse_uri(char *uri, char *filename) {
-  char *ptr;
+int parse_uri(char *uri, char *filename, char *serverhostname, char *serverport,
+              char *requestbuf) {
+  char *httprequest;
 
+  if (strchr(uri + 9, ':')) {
+    sscanf(uri, "%*[^:]%*3c%[^:]%*c%[^/:]%*c%s", serverhostname, serverport,
+           filename);
+  } else {
+    sscanf(uri, "%*[^:]%*3c%[^/]%*c%s", serverhostname, filename);
+    // Use the default HTTP port 80
+    serverport = "80";
+  }
+  // TODO: should we remove this ?
   if (uri[strlen(uri) - 1] == '/')
     strcat(filename, "index.html");
+
+  strcpy(httprequest, "");
+  strcat(httprequest, "GET ");
+  strcat(httprequest, filename);
+  strcat(httprequest, " HTTP/1.0\r\n");
+
+  strcat(requestbuf, httprequest);
+
+  printf("[DEBUG] after parsing url requestbuf: %s", requestbuf);
 }
 /* $end parse_uri */
 
